@@ -1,0 +1,71 @@
+---
+title: "Project"
+author: "Ann Cannon"
+date: "3/22/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r, echo=FALSE, results='hide', warning=FALSE, message=FALSE}
+library(caret)
+library(rattle)
+
+```
+
+First we read in the training data, change the class of numeric variables from character to numeric and eliminate any columns with missing values.
+```{r, warning=FALSE, message=FALSE}
+initialData <- read.csv("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv")
+
+initialData[,c(7:159)] <- sapply(initialData[,c(7:159)], as.numeric)
+
+#Find the variables without missing values
+vec <- 0
+for(i in 1:160) {
+      vec[i] <- sum(is.na(initialData[,i]))
+}
+
+noMissing <- initialData[,vec==0]
+
+```
+
+Next we divide the training data set into two parts: a training part and a validation part (called testing here).  We also force the \textit(classe) variable to be a factor variable.
+
+```{r, warning=FALSE, message=FALSE}
+inTrain <- createDataPartition(y=noMissing$classe, p=.75, list=FALSE)
+training <- noMissing[inTrain,]
+testing <- noMissing[-inTrain,]
+
+training$classe <- factor(training$classe)
+testing$classe <- factor(testing$classe)
+```
+
+Finally we begin the model building process by fitting a simple rpart model using all available variables.
+
+```{r}
+modFit <- train(classe~., data=training, method="rpart")
+predicts <- predict(modFit, newdata=testing)
+
+confusionMatrix(predicts, testing$classe)
+fancyRpartPlot(modFit$finalModel)
+
+```
+
+This is an interesting start.  The model correctly predicts 66.15% of the validation sample.  It correctly classifies all A, and B observations, but classifies everything else as E (not making a distinction between C, D, and E).  
+
+So we try a model using linear discriminant analysis, using the same variables.
+
+```{r, warning=FALSE, message=FALSE}
+modFitld <- train(classe~., data=training, method="lda")
+predlda <- predict(modFitld, newdata=testing)
+
+confusionMatrix(predlda, testing$classe)
+
+```
+
+This time we have correctly classify all observations except one.  That observation is predicted to be in group C, but, in reality, is in group B.  This model has an accuracy of 99.98% using the validation data.  So we predict about a 1% out of sample error rate.
+
+WE will stay with this model.
